@@ -109,9 +109,9 @@ def add_animal():
                     example: mammals
     responses:
         201:
-            description: Name wurde erfolgreich hinzugefügt
+            description: Tier wurde erfolgreich hinzugefügt
         400:
-            description: Fehler, kein Objekt übergeben
+            description: Keine oder fehlerhafte Daten übertragen
     """
     new_animal = request.get_json() # {"name": "turtle", "age:": 100, "genus": "reptile"}
     if not new_animal or 'name' not in new_animal:
@@ -203,6 +203,8 @@ def put_animal(animal_id):
     """
     updated_animal = request.get_json() # in data wird das Ganze JSON-Objekt gespeichert, das vom Client im Body übergeben wird
     # Suche nach dem Objekt, das wir updaten wollen
+    if updated_animal == None or 'name' not in updated_animal:
+        return jsonify({"message": "Es wurde kein Objekt übergeben"})
     con = get_db_connection()
     cur = con.cursor()
     animal = cur.execute('SELECT * FROM Animals WHERE id = ?', (animal_id,)).fetchone()
@@ -256,16 +258,19 @@ def patch_animal(animal_id):
             examples:
                 application/json:
                     - message: Tier wurde nicht gefunden
-
     """
     update_data = request.get_json()
-    for animal in animals:
-        if animal["name"] == name:
-            animal.update(update_data)
-            # return f"{name} wurde geupdated", 200
-            return jsonify({"message": "Tier wurde geupdated"}), 200
-    # return f"{name} wurde nicht gefunden", 404
-    return jsonify({"message": "Tier wurde nicht gefunden"}), 404
+    con = get_db_connection()
+    cur = con.cursor()
+    animal = cur.execute('SELECT * FROM Animals WHERE id = ?', (animal_id,)).fetchone()
+    if animal is None:
+        return jsonify({"message": "Tier mit dieser ID ist nicht in der DB"}), 404
+    for key, value in update_data.items():
+        if key in ['name', 'age', 'genus']: #SELECT name FROM pragma_table_info('Ihre_Tabelle') ??? um spaltenüberschriften aus der db zu laden damit validierung nicht hardcoded ist
+            cur.execute(f'UPDATE Animals SET {key} = ? WHERE id = ?', (value, animal_id))
+    con.commit()
+    con.close()
+    return jsonify({"message": "Tier wurde geupdated"}), 200
 
 # App starten
 if __name__ == "__main__":
