@@ -49,6 +49,16 @@ def init_db():
         cur.executemany('INSERT INTO Animals (name, age, genus) VALUES (?,?,?)', data) # das geht er jeweils für jeden Eintrag der data durch
         con.commit()
     con.close()
+    
+def get_columns(table):
+    con = get_db_connection()
+    cur = con.cursor()
+    valid_keys = cur.execute(f'''SELECT name FROM pragma_table_info('{table}') WHERE pk = 0''').fetchall()
+    valid_keys_list = []
+    for row in valid_keys:
+        valid_keys_list.append(row['name'])
+    con.close()
+    return valid_keys_list
 
 ## Test-Route für Startseite
 @app.route("/")
@@ -260,13 +270,14 @@ def patch_animal(animal_id):
                     - message: Tier wurde nicht gefunden
     """
     update_data = request.get_json()
+    valid_keys_list = get_columns("Animals")
     con = get_db_connection()
     cur = con.cursor()
     animal = cur.execute('SELECT * FROM Animals WHERE id = ?', (animal_id,)).fetchone()
     if animal is None:
         return jsonify({"message": "Tier mit dieser ID ist nicht in der DB"}), 404
     for key, value in update_data.items():
-        if key in ['name', 'age', 'genus']: #SELECT name FROM pragma_table_info('Ihre_Tabelle') ??? um spaltenüberschriften aus der db zu laden damit validierung nicht hardcoded ist
+        if key in valid_keys_list:
             cur.execute(f'UPDATE Animals SET {key} = ? WHERE id = ?', (value, animal_id))
     con.commit()
     con.close()
